@@ -6,7 +6,9 @@ const ADD_BOOK = gql(`
   mutation($title: String!, $author: String!, $published: Int!, $genres: [String!]!) {
     addBook(title: $title, author: $author, published: $published, genres: $genres) {
       title
-      author
+      author {
+        name
+      }
       published
       id
     }
@@ -21,7 +23,14 @@ const NewBook = (props) => {
   const [genres, setGenres] = useState([])
 
   const [ addBook ] = useMutation(ADD_BOOK, {
-    refetchQueries: [ { query: ALL_BOOKS } ]
+    update: (cache, response) => {
+
+      cache.updateQuery({ query: ALL_BOOKS }, ({ allBooks }) => {
+        return {
+          allBooks: allBooks.concat(response.data.addBook),
+        }
+      })
+    }
   })
 
   if (!props.show) {
@@ -31,8 +40,6 @@ const NewBook = (props) => {
   const submit = async (event) => {
     event.preventDefault()
 
-    console.log('add book...')
-
     addBook({variables: {title, author, published: Number(published), genres}})
 
     setTitle('')
@@ -40,6 +47,8 @@ const NewBook = (props) => {
     setAuthor('')
     setGenres([])
     setGenre('')
+
+    props.setPage('books')
   }
 
   const addGenre = () => {

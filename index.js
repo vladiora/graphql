@@ -137,6 +137,7 @@ const typeDefs = `
 		): [Book!]!
 		allAuthors: [Author!]!
 		me: User
+		allGenres: [String!]!
 	}
 
 	type Mutation {
@@ -193,6 +194,17 @@ const resolvers = {
 
 		me: (root, args, context) => {
 			return context.currentUser
+		},
+
+		allGenres: async () => {
+
+			const allBooks = await Book.find({}, { genres: 1, _id: 0 });
+			const allGenres = allBooks.reduce((genres, book) => {
+				return genres.concat(book.genres);
+			}, []);
+
+			// Remove duplicates
+			return [...new Set(allGenres)];
 		}
 	},
 	Author: {
@@ -243,7 +255,7 @@ const resolvers = {
 					}
 				})
 			}
-			return book
+			return book.populate('author', { name: 1, born: 1, bookCount: 1 })
 		},
 
 		editAuthor: async (root, args, { currentUser }) => {
