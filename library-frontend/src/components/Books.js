@@ -1,73 +1,89 @@
-import { useQuery, useLazyQuery } from "@apollo/client"
-import { ALL_BOOKS, ALL_GENRES, GET_BOOKS } from "../queries"
+import { useQuery, useLazyQuery, useSubscription } from "@apollo/client"
+import { ALL_BOOKS, ALL_GENRES, BOOK_ADDED, GET_BOOKS } from "../queries"
 import Select from 'react-select';
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react"
+import { updateCache } from '../App'
 
 const Books = (props) => {
-  const [ selGenre, setSelGenre ] = useState('All Genres')
-  const allBooks = useQuery(ALL_BOOKS)
-  const [getBooks, { loading, error, data }] = useLazyQuery(GET_BOOKS)
-  const genres = useQuery(ALL_GENRES)
+	const [ selGenre, setSelGenre ] = useState('All Genres')
+	const allBooks = useQuery(ALL_BOOKS)
+	const [getBooks, { loading, error, data }] = useLazyQuery(GET_BOOKS)
+	const genres = useQuery(ALL_GENRES)
 
-  useEffect(() => {
+	useEffect(() => {
 
-      if (selGenre !== 'All Genres') {
-        getBooks({ variables: { genre: selGenre } });
-      }
-    }, [allBooks.loading])
+			if (selGenre !== 'All Genres') {
+				getBooks({ variables: { genre: selGenre } });
+			}
+	}, [allBooks.loading, selGenre])
 
-  if (!props.show) {
-    return null
-  }
+	useSubscription(BOOK_ADDED, {
+		onData: ({ data, client }) => {
 
-  if (allBooks.loading || loading) {
-    return <div>loading books...</div>
-  }
+			const addedBook = data.data.bookAdded;
 
-  if (error)
-    window.alert(error.message)
+			window.alert('New Book added')
 
-  const filterBooks = (selected) => {
+			updateCache(client.cache, { query: ALL_BOOKS }, addedBook)
 
-    setSelGenre(selected)
+			if (addedBook.genres.includes(selGenre))
+				updateCache(client.cache, { query: GET_BOOKS, variables: {genre: selGenre} }, addedBook)
 
-    // Fetch books based on the selected genre using the lazy query
-    if (selected !== 'All Genres') {
-      getBooks({ variables: { genre: selected } });
-    }
-  }
+		}
+	})
 
-  const options = ['All Genres', ...genres.data.allGenres].map((genre) => ({ value: genre, label: genre }));
+	if (!props.show) {
+		return null
+	}
 
-  return (
-    <div>
-      <h2>books</h2>
+	if (allBooks.loading || loading) {
+		return <div>loading books...</div>
+	}
 
-      <Select
-        options={options}
-        value={selGenre ? { value: selGenre, label: selGenre } : null}
-        onChange={(selectedOption) => filterBooks(selectedOption?.value || null)}
-        placeholder="Select a genre"
-      />
+	if (error)
+		window.alert(error.message)
 
-      <table>
-        <tbody>
-          <tr>
-            <th></th>
-            <th>author</th>
-            <th>published</th>
-          </tr>
-          {(selGenre === 'All Genres' ? allBooks.data.allBooks : data.allBooks).map((a) => (
-            <tr key={a.title}>
-              <td>{a.title}</td>
-              <td>{a.author.name}</td>
-              <td>{a.published}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+	const filterBooks = (selected) => {
+
+		setSelGenre(selected)
+
+		// Fetch books based on the selected genre using the lazy query
+		if (selected !== 'All Genres') {
+			getBooks({ variables: { genre: selected } });
+		}
+	}
+
+	const options = ['All Genres', ...genres.data.allGenres].map((genre) => ({ value: genre, label: genre }));
+
+	return (
+		<div>
+			<h2>books</h2>
+
+			<Select
+				options={options}
+				value={selGenre ? { value: selGenre, label: selGenre } : null}
+				onChange={(selectedOption) => filterBooks(selectedOption?.value || null)}
+				placeholder="Select a genre"
+			/>
+
+			<table>
+				<tbody>
+					<tr>
+						<th></th>
+						<th>author</th>
+						<th>published</th>
+					</tr>
+					{(selGenre === 'All Genres' ? allBooks.data.allBooks : data.allBooks).map((a) => (
+						<tr key={a.title}>
+							<td>{a.title}</td>
+							<td>{a.author.name}</td>
+							<td>{a.published}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	)
 }
 
 export default Books
